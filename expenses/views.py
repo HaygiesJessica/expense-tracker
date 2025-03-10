@@ -207,81 +207,210 @@ def get_highest_expense(request):
 
 # 1️⃣2️⃣ Get Total Expenses for a Category ***
 @api_view(['GET'])
-def get_total_expense_by_category(request):
-    category = request.GET.get("category")  # Get category from request params
+def get_total_expenses(request):
+    # Extract the 'category' query parameter
+    category = request.GET.get("category")
     if not category:
-        return JsonResponse({"error": "Category is required"}, status=400)
+        return Response({"error": "Category is required"}, status=400)
 
-    total = Expense.objects.filter(category=category).aggregate(total_amount=Sum('amount'))
-    
-    return JsonResponse({
+    # Query the database to calculate the total expenses for the specified category
+    total = Expense.objects.filter(category__iexact=category).aggregate(total_amount=Sum('amount'))
+
+    # Return the total expenses (or 0 if no expenses are found)
+    return Response({
         "category": category,
         "total_expense": total["total_amount"] or 0
     })
 
-# 1️⃣3️⃣ Get Total Expenses for All Categories
-@api_view(['GET'])
-def get_total_expenses(request):
-    total_expense = Expense.objects.aggregate(Sum("amount"))["amount__sum"]
-    if total_expense is None:
-        total_expense = 0  # Return 0 if no expenses exist
-    return Response({"total_expense": total_expense})
-
 # 1️⃣4️⃣ Get Category Expenditure for Current Month
 @api_view(['GET'])
-def get_category_monthly_expense(request):
-    category = request.GET.get("category", None)
+def get_category_expenditure_current_month(request):
+    # Extract the 'category' query parameter
+    category = request.GET.get("category")
     if not category:
-        return Response({"error": "Category parameter is required"}, status=400)
+        return Response({"error": "Category is required"}, status=400)
 
-    today = now().date()
-    first_day = today.replace(day=1)
+    # Get the current month and year
+    today = datetime.today()
+    current_month = today.month
+    current_year = today.year
 
-    total_expense = (
-        Expense.objects.filter(category=category, date__gte=first_day, date__lte=today)
-        .aggregate(Sum("amount"))
-        .get("amount__sum", 0)
+    # Query the database to calculate the total expenses for the specified category in the current month
+    total = Expense.objects.filter(
+        category__iexact=category,
+        date__month=current_month,
+        date__year=current_year
+    ).aggregate(total_amount=Sum('amount'))
+
+    # Return the total expenses (or 0 if no expenses are found)
+    return Response({
+        "category": category,
+        "month": today.strftime("%B"),  # Full month name (e.g., "October")
+        "year": current_year,
+        "total_expense": total["total_amount"] or 0
+    })
+
+#15th Endpoint
+@api_view(['GET'])
+def get_expense_summary_by_date(request):
+    # Extract the 'date' query parameter
+    date_str = request.GET.get("date")
+    if not date_str:
+        return Response({"error": "Date is required (format: YYYY-MM-DD)"}, status=400)
+
+    try:
+        # Parse the date string into a Python date object
+        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+
+    # Query the database to fetch all expenses for the specified date
+    expenses = Expense.objects.filter(date=target_date)
+
+    # Prepare the summary response
+    summary = {
+        "date": target_date.strftime("%Y-%m-%d"),
+        "total_expense": expenses.aggregate(total_amount=Sum('amount'))["total_amount"] or 0,
+        "expenses": [
+            {
+                "id": expense.id,
+                "category": expense.category,
+                "amount": str(expense.amount),  # Convert Decimal to string for JSON serialization
+                "description": expense.description if hasattr(expense, 'description') else None
+            }
+            for expense in expenses
+        ]
+    }
+
+    return Response(summary)
+
+#16th Endpoint
+@api_view(['GET'])
+def get_expense_history_for_category(request):
+    # Extract the 'category' query parameter
+    category = request.GET.get("category")
+    if not category:
+        return Response({"error": "Category is required"}, status=400)
+
+    # Query the database to fetch all expenses for the specified category
+    expenses = Expense.objects.filter(category__iexact=category).order_by('date')
+
+    # Prepare the response data
+    expense_history = [
+        {
+            "id": expense.id,
+            "amount": str(expense.amount),  # Convert Decimal to string for JSON serialization
+            "date": expense.date.strftime("%Y-%m-%d"),
+            "description": expense.description if hasattr(expense, 'description') else None
+        }
+        for expense in expenses
+    ]
+
+    return Response({
+        "category": category,
+        "total_expenses": len(expense_history),
+        "expense_history": expense_history
+    })
+
+#17th Enpoint
+@api_view(['DELETE'])
+def delete_expense(request):
+    expense_id = request.GET.get("expense_id")
+    if not expense_id:
+        return Response({"error": "Expense ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        expense = Expense.objects.get(id=expense_id)
+    except Expense.DoesNotExist:
+        return Response({"error": f"Expense with ID {expense_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    expense.delete()
+
+    return Response({
+        "message": f"Expense with ID {expense_id} has been deleted",
+        "deleted_expense": {
+            "id": expense_id,
+            "category": expense.category,
+            "amount": str(expense.amount),
+            "date": expense.date.strftime("%Y-%m-%d"),
+            "description": expense.description if hasattr(expense, 'description') else None
+        }
+    }, status=status.HTTP_200_OK)
+
+#18th Endpoint
+@api_view(['PUT'])
+def update_expense_description(request):
+    # Extract the 'expense_id' and 'new_description' query parameters
+    expense_id = request.GET.get("expense_id")
+    new_description = request.GET.get("new_description")
+
+    if not expense_id:
+        return Response({"error": "Expense ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+    if not new_description:
+        return Response({"error": "New description is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # Fetch the expense by ID
+        expense = Expense.objects.get(id=expense_id)
+    except Expense.DoesNotExist:
+        return Response({"error": f"Expense with ID {expense_id} not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Update the description
+    old_description = expense.description
+    expense.description = new_description
+    expense.save()
+
+    # Return confirmation of the update
+    return Response({
+        "message": f"Description for expense ID {expense_id} has been updated",
+        "updated_expense": {
+            "id": expense.id,
+            "category": expense.category,
+            "amount": str(expense.amount),  # Convert Decimal to string for JSON serialization
+            "date": expense.date.strftime("%Y-%m-%d"),
+            "old_description": old_description,
+            "new_description": expense.description
+        }
+    }, status=status.HTTP_200_OK)
+
+#19th Endpoint
+@api_view(['GET'])
+def get_total_budget_for_all_categories(request):
+    # Query the database to calculate the total amount of expenses
+    total_expenses = Expense.objects.aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+
+    # Return the total amount
+    return Response({
+        "total_expenses": total_expenses
+    })
+
+#20th Endpoint
+@api_view(['GET'])
+def get_monthly_spend_by_category(request):
+    # Get the current year and month
+    today = datetime.today()
+    current_year = today.year
+    current_month = today.month
+
+    # Query the database to calculate the total expenses for each category in the current month
+    monthly_expenses = (
+        Expense.objects
+        .filter(date__year=current_year, date__month=current_month)
+        .values('category')
+        .annotate(total_amount=Sum('amount'))
+        .order_by('category')
     )
 
-    return Response({"category": category, "total_expense": total_expense})
+    # Prepare the response data
+    expense_summary = [
+        {
+            "category": entry['category'],
+            "total_amount": str(entry['total_amount'])  # Convert Decimal to string for JSON serialization
+        }
+        for entry in monthly_expenses
+    ]
 
-# 1️⃣5️⃣ Get Expense Summary by Date
-@api_view(['GET'])
-def get_expense_summary(request, date):
-    expenses = Expense.objects.filter(date=date)
-    serializer = ExpenseSerializer(expenses, many=True)
-    return Response(serializer.data)
-
-# 1️⃣6️⃣ Get Expense History for a Category
-@api_view(['GET'])
-def get_expense_history(request, category):
-    expenses = Expense.objects.filter(category=category).order_by('date')
-    serializer = ExpenseSerializer(expenses, many=True)
-    return Response(serializer.data)
-
-# 1️⃣7️⃣ Delete Specific Expense
-@api_view(['DELETE'])
-def delete_expense(request, expense_id):
-    expense = get_object_or_404(Expense, id=expense_id)
-    expense.delete()
-    return Response({'message': 'Expense deleted'})
-
-# 1️⃣8️⃣ Update Expense Description
-@api_view(['PUT'])
-def update_expense_description(request, expense_id):
-    expense = get_object_or_404(Expense, id=expense_id)
-    expense.description = request.data.get('description', expense.description)
-    expense.save()
-    return Response({'message': 'Expense updated'})
-
-# 1️⃣9️⃣ Get Total Budget for All Categories
-@api_view(['GET'])
-def get_total_budget(request):
-    return Response({'total_budget': 5000})  # Placeholder
-
-# 2️⃣0️⃣ Get Monthly Spend for Each Category
-@api_view(['GET'])
-def get_monthly_category_expenses(request):
-    from django.utils.timezone import now
-    expenses = Expense.objects.filter(date__month=now().month).values('category').annotate(total=Sum('amount'))
-    return Response(expenses)
+    return Response({
+        "month": today.strftime("%B %Y"),  # e.g., "March 2025"
+        "expense_summary": expense_summary
+    })
