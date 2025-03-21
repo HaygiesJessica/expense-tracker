@@ -14,7 +14,6 @@ class BudgetSerializer(serializers.ModelSerializer):
         fields = ['category', 'amount']
 
     def validate(self, data):
-        """Ensure only one budget entry per category per month"""
         category = data.get('category')
         current_month = now().month
         current_year = now().year
@@ -33,6 +32,5 @@ class BudgetSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        """Set the budget for the current month"""
         validated_data['date'] = now().date()
         return super().create(validated_data)
