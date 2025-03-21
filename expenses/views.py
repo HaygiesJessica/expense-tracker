@@ -82,7 +82,14 @@ def set_monthly_budget(request):
     budget_amount = serializer.validated_data['amount']
     current_date = now().date()
 
+<<<<<<< HEAD
     # Ensure filtering by user
+=======
+<<<<<<< HEAD
+=======
+    # Ensure filtering by user
+>>>>>>> 2740875b (Initial commit)
+>>>>>>> 11bbbedd83cac760bc8fb5ed5cf69ce1bf0e2b3a
     budget, created = Budget.objects.update_or_create(
         user=request.user,
         category=category,
@@ -104,7 +111,15 @@ def set_monthly_budget(request):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_current_budget(request):
+<<<<<<< HEAD
     """Retrieve the latest budget for the authenticated user and a specific category."""
+=======
+<<<<<<< HEAD
+    
+=======
+    """Retrieve the latest budget for the authenticated user and a specific category."""
+>>>>>>> 2740875b (Initial commit)
+>>>>>>> 11bbbedd83cac760bc8fb5ed5cf69ce1bf0e2b3a
     category = request.GET.get('category')
 
     if not category:
@@ -133,7 +148,15 @@ def get_current_budget(request):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_budget_status(request):
+<<<<<<< HEAD
     """Check user's spending against budget for a specific category in the current month."""
+=======
+<<<<<<< HEAD
+    
+=======
+    """Check user's spending against budget for a specific category in the current month."""
+>>>>>>> 2740875b (Initial commit)
+>>>>>>> 11bbbedd83cac760bc8fb5ed5cf69ce1bf0e2b3a
     category = request.GET.get('category')
 
     if not category:
