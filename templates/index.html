@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Expense Tracker Pro</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #eee; }
+        .balance { background: #e7f3ff; grid-column: span 2; color: #007bff; font-weight: bold; }
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333; }
+        form { margin-bottom: 15px; display: flex; gap: 5px; }
+        input, select, button { padding: 10px; border-radius: 5px; border: 1px solid #ddd; }
+        button { cursor: pointer; background: #28a745; color: white; border: none; font-weight: bold; }
+        button:hover { background: #218838; }
+        .history { max-height: 200px; overflow-y: auto; background: #fafafa; padding: 10px; border-radius: 5px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Financial Dashboard</h2>
+    
+    <div class="stats">
+        <div class="stat-card balance">Remaining Balance: ₱{{ balance }}</div>
+        <div class="stat-card">Allowance<br><strong>₱{{ data.allowance }}</strong></div>
+        <div class="stat-card">Expenses<br><strong>₱{{ data.expenses }}</strong></div>
+        <div class="stat-card">Savings<br><strong>₱{{ data.savings }}</strong></div>
+    </div>
+
+    <h3>Manage Money</h3>
+    
+    <!-- Add Allowance -->
+    <form action="/add_allowance" method="POST">
+        <input type="number" name="amount" placeholder="Add Allowance" step="0.01" required style="flex:1">
+        <button type="submit">Add</button>
+    </form>
+
+    <!-- Add Expense -->
+    <form action="/add_expense" method="POST">
+        <input type="number" name="amount" placeholder="Expense Amount" step="0.01" required style="flex:1">
+        <select name="category">
+            <option value="Food">Food</option>
+            <option value="Transport">Transport</option>
+            <option value="Misc">Misc</option>
+        </select>
+        <button type="submit" style="background: #dc3545;">Deduct</button>
+    </form>
+
+    <!-- Save Money -->
+    <form action="/add_savings" method="POST">
+        <input type="number" name="amount" placeholder="Move to Savings" step="0.01" required style="flex:1">
+        <button type="submit" style="background: #ffc107; color: black;">Save</button>
+    </form>
+
+    <h3>History</h3>
+    <div class="history">
+        {% if not data.logs %}
+            <p style="color: #999;">No transactions yet.</p>
+        {% endif %}
+        <ul>
+            {% for log in data.logs[::-1] %} <!-- [::-1] shows newest first -->
+                <li>{{ log }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+</body>
+</html>
